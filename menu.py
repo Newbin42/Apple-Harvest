@@ -1,6 +1,7 @@
 from __future__ import annotations
 from sprite import Spritesheet
 from vec2d import vec2d
+from enum import Enum
 import pygame
 
 class Button:
@@ -13,7 +14,7 @@ class Button:
         self.parent = parent
         self.hovered = False
 
-        self.tick = 60*60
+        self.tick = 60
 
     def mouse_over(self: Button, mouse: tuple[int]) -> bool:
         if (mouse[0] < self.rect.left or mouse[0] > self.rect.right):
@@ -70,25 +71,26 @@ class Button:
         
         if (self.tick <= 0):
             self.toggle(hovermode=False)
-            self.tick = 60*60
+            self.tick = 60
         
-        self.tick -= (timeDelta * 10)
-    
+        self.tick -= (timeDelta)
+
 class Menu:
     def __init__(self: Menu, parent: pygame.Surface, *files: tuple[str, tuple[int]]):
-        self.buttons: list[Button] = []
+        self.buttons: dict[str, Button] = {}
+        self.firstKey = None
         for file in files:
-            self.buttons.append(Button(file[0], file[1], parent=parent))
+            button = Button(file[1], file[2], parent=parent)
+            self.buttons[file[0]] = button
+
+            if (not self.firstKey):
+                self.firstKey = file[0]
 
         self.position = vec2d(0, 0)
         self.rect = pygame.Rect(*self.position, self.__width__(), self.__height__())
         self.parent = parent
 
         self.__place_buttons__()
-
-    def __place_buttons__(self: Menu) -> None:
-        for y in range(len(self.buttons)):
-            self.buttons[y].set_position(vec2d(self.rect.x, y * self.buttons[y].rect.height + int(self.buttons[1].rect.height / len(self.buttons))))
 
     def set_position(self: Menu, position: vec2d | pygame.Vector2):
         self.position = position
@@ -102,8 +104,15 @@ class Menu:
 
         self.__place_buttons__()
 
+    def get_mouse_over(self, mouse: tuple[float, float] | pygame.Vector2) -> str:
+        output = ""
+        for key, button in self.buttons.items():
+            if (button.mouse_over(mouse)): return key
+
+        return output
+
     def hover(self: Menu, mouse: tuple[float, float] | pygame.Vector2) -> bool:
-        for button in self.buttons:
+        for _, button in self.buttons.items():
             if (button.mouse_over(mouse)):
                 if (button.hovered == False):
                     button.toggle()
@@ -125,38 +134,44 @@ class Menu:
         self.fit_y()
 
     def update(self, timeDelta):
-        for button in self.buttons:
+        for _, button in self.buttons.items():
             button.update(timeDelta)
 
     def draw(self):
-        for button in self.buttons:
+        for _, button in self.buttons.items():
             button.draw()
     
     def __width__(self: Menu) -> float:
-        return self.buttons[0].rect.width
+        return self.buttons[self.firstKey].rect.width
     
     def __height__(self: Menu) -> float:
-        return len(self.buttons) * self.buttons[0].rect.height
+        return len(self.buttons) * self.buttons[self.firstKey].rect.height
+    
+    def __place_buttons__(self: Menu) -> None:
+        y = 0
+        for key, button in self.buttons.items():
+            button.set_position(vec2d(self.rect.x, y * self.buttons[key].rect.height))
+            y += 1
 
 class AdvancedMenu(Menu):
     def __init__(self: AdvancedMenu, parent: pygame.Surface) -> None:
-        self.buttons: list[Button] = []
+        self.buttons: dict[str, Button] = {}
 
         self.position = vec2d(0, 0)
         self.parent = parent
 
-    def add(self: AdvancedMenu, file: str, rect: tuple[int, int, int, int]) -> None:
+    def add(self: AdvancedMenu, tag: str, file: str, rect: tuple[int, int, int, int]) -> None:
         button = Button(file, rect[2:], parent=self.parent)
         button.set_position(vec2d(*rect[:2], int))
-        self.buttons.append(button)
+        self.buttons[tag] = button
 
     def fit_x(self: AdvancedMenu) -> None:
-        for button in self.buttons:
+        for _, button in self.buttons.items():
             button.fit_x()
 
     def fit_y(self: AdvancedMenu) -> None:
-        for button in self.buttons:
-            button.fit_x()
+        for _, button in self.buttons.items():
+            button.fit_y()
 
     def fit(self: AdvancedMenu) -> None:
         self.fit_x()
